@@ -1,114 +1,274 @@
-import { useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import type { Product } from "@shared/schema";
+import { Upload, Trash2, Link } from "lucide-react";
+import { useState, useEffect } from "react";
+
+interface Product {
+  id?: number;
+  name: string;
+  category: string;
+  price: number;
+  stock: number;
+  status: string;
+  imageUrl?: string;
+}
 
 interface ProductDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  mode: "create" | "edit" | "view";
   product?: Product | null;
-  onSave: (product: Partial<Product>) => void;
+  onSave?: (data: Partial<Product>) => Promise<void>;
+  onDelete?: (id: number) => void;
 }
 
-export default function ProductDialog({ open, onOpenChange, product, onSave }: ProductDialogProps) {
-  const [formData, setFormData] = useState({
-    name: product?.name || "",
-    category: product?.category || "",
-    price: product?.price || "",
-    stock: product?.stock?.toString() || "",
-    status: product?.status || "active",
+export default function ProductDialog({
+  open,
+  onOpenChange,
+  mode,
+  product,
+  onSave,
+  onDelete,
+}: ProductDialogProps) {
+  const [form, setForm] = useState<Partial<Product>>({
+    name: "",
+    category: "",
+    price: 0,
+    stock: 0,
+    status: "active",
+    imageUrl: "",
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    onSave({
-      ...formData,
-      stock: parseInt(formData.stock),
-    });
-    onOpenChange(false);
+  const [uploading, setUploading] = useState(false);
+  const [showUrlInput, setShowUrlInput] = useState(false);
+
+  useEffect(() => {
+    if (product) setForm(product);
+    else
+      setForm({
+        name: "",
+        category: "",
+        price: 0,
+        stock: 0,
+        status: "active",
+        imageUrl: "",
+      });
+  }, [product, open]);
+
+  const isView = mode === "view";
+
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+  ) => {
+    const { name, value } = e.target;
+    setForm((prev) => ({ ...prev, [name]: value }));
   };
+
+  const handleSubmit = async () => {
+    if (onSave) await onSave(form);
+  };
+
+  const handleImageUpload = async (
+    e: React.ChangeEvent<HTMLInputElement>
+  ): Promise<void> => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      setUploading(true);
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("upload_preset", "OHairGanic");
+
+      const res = await fetch(
+        `https://api.cloudinary.com/v1_1/dnmmgmwcp/image/upload`,
+        { method: "POST", body: formData }
+      );
+      const data = await res.json();
+      if (data.secure_url)
+        setForm((prev) => ({ ...prev, imageUrl: data.secure_url }));
+      else alert("Không thể upload ảnh");
+    } catch (err) {
+      console.error("Upload error:", err);
+      alert("Upload ảnh thất bại");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleManualImage = () => setShowUrlInput((p) => !p);
+  const removeImage = () =>
+    confirm("Xóa ảnh hiện tại?") &&
+    setForm((prev) => ({ ...prev, imageUrl: "" }));
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-w-3xl bg-card text-card-foreground border border-border rounded-2xl shadow-2xl transition-colors duration-300">
         <DialogHeader>
-          <DialogTitle>{product ? "Chỉnh sửa Product" : "Thêm Product mới"}</DialogTitle>
+          <DialogTitle className="text-2xl font-semibold">
+            {mode === "create"
+              ? "Thêm sản phẩm"
+              : mode === "edit"
+              ? "Chỉnh sửa sản phẩm"
+              : "Chi tiết sản phẩm"}
+          </DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="name">Tên sản phẩm</Label>
-            <Input
-              id="name"
-              data-testid="input-dialog-name"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              required
-            />
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+          {/* ẢNH */}
+          <div className="flex flex-col items-center">
+            <div className="rounded-2xl p-[2px] bg-gradient-to-br from-emerald-400 via-green-500 to-sky-500 shadow-lg relative">
+              <div className="bg-background rounded-2xl overflow-hidden relative">
+                <img
+                  src={form.imageUrl || "https://placehold.co/400x400?text=No+Image"}
+                  alt={form.name}
+                  className="w-72 h-72 object-cover"
+                />
+
+                {!isView && (
+                  <div className="absolute bottom-3 right-3 flex gap-2">
+                    <label
+                      htmlFor="image-upload"
+                      className="bg-emerald-500 hover:bg-emerald-600 text-white rounded-full p-2 cursor-pointer shadow-md flex items-center gap-1 text-sm"
+                    >
+                      <Upload className="w-4 h-4" />
+                      {uploading ? "Đang tải..." : "Upload"}
+                      <input
+                        id="image-upload"
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={handleImageUpload}
+                        disabled={uploading}
+                      />
+                    </label>
+                    <button
+                      onClick={handleManualImage}
+                      className="bg-blue-500 hover:bg-blue-600 text-white rounded-full p-2 shadow-md"
+                    >
+                      <Link className="w-4 h-4" />
+                    </button>
+                    {form.imageUrl && (
+                      <button
+                        onClick={removeImage}
+                        className="bg-red-500 hover:bg-red-600 text-white rounded-full p-2 shadow-md"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {showUrlInput && !isView && (
+              <div className="mt-3 w-full">
+                <Label>Nhập link ảnh thủ công</Label>
+                <Input
+                  placeholder="https://..."
+                  value={form.imageUrl || ""}
+                  onChange={(e) =>
+                    setForm((p) => ({ ...p, imageUrl: e.target.value }))
+                  }
+                  className="bg-muted border-border text-foreground"
+                />
+              </div>
+            )}
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="category">Danh mục</Label>
-            <Select value={formData.category} onValueChange={(value) => setFormData({ ...formData, category: value })}>
-              <SelectTrigger data-testid="select-dialog-category">
-                <SelectValue placeholder="Chọn danh mục" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Electronics">Electronics</SelectItem>
-                <SelectItem value="Clothing">Clothing</SelectItem>
-                <SelectItem value="Food">Food</SelectItem>
-                <SelectItem value="Books">Books</SelectItem>
-                <SelectItem value="Toys">Toys</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="price">Giá (VNĐ)</Label>
+
+          {/* FORM */}
+          <div className="flex flex-col space-y-4">
+            <div>
+              <Label>Tên sản phẩm</Label>
               <Input
-                id="price"
-                data-testid="input-dialog-price"
-                type="number"
-                step="0.01"
-                value={formData.price}
-                onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                required
+                name="name"
+                value={form.name}
+                onChange={handleChange}
+                disabled={isView}
+                className="bg-background text-foreground"
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="stock">Tồn kho</Label>
+            <div>
+              <Label>Danh mục</Label>
               <Input
-                id="stock"
-                data-testid="input-dialog-stock"
-                type="number"
-                value={formData.stock}
-                onChange={(e) => setFormData({ ...formData, stock: e.target.value })}
-                required
+                name="category"
+                value={form.category}
+                onChange={handleChange}
+                disabled={isView}
+                className="bg-background text-foreground"
               />
             </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Giá (VNĐ)</Label>
+                <Input
+                  type="number"
+                  name="price"
+                  value={form.price}
+                  onChange={handleChange}
+                  disabled={isView}
+                  className="bg-background text-foreground"
+                />
+              </div>
+              <div>
+                <Label>Tồn kho</Label>
+                <Input
+                  type="number"
+                  name="stock"
+                  value={form.stock}
+                  onChange={handleChange}
+                  disabled={isView}
+                  className="bg-background text-foreground"
+                />
+              </div>
+            </div>
+            {!isView && (
+              <div>
+                <Label>Trạng thái</Label>
+                <select
+                  name="status"
+                  value={form.status}
+                  onChange={handleChange}
+                  className="w-full bg-muted border border-border text-foreground rounded-lg p-2"
+                >
+                  <option value="active">Hoạt động</option>
+                  <option value="inactive">Không hoạt động</option>
+                </select>
+              </div>
+            )}
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="status">Trạng thái</Label>
-            <Select value={formData.status} onValueChange={(value) => setFormData({ ...formData, status: value })}>
-              <SelectTrigger data-testid="select-dialog-status">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="active">Hoạt động</SelectItem>
-                <SelectItem value="inactive">Không hoạt động</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} data-testid="button-dialog-cancel">
-              Hủy
+        </div>
+
+        {/* ACTION */}
+        <div className="flex justify-end gap-3 mt-6">
+          {isView ? (
+            <Button
+              onClick={() => onOpenChange(false)}
+              variant="secondary"
+              className="text-foreground"
+            >
+              Đóng
             </Button>
-            <Button type="submit" data-testid="button-dialog-save">
-              Lưu
+          ) : (
+            <Button
+              onClick={handleSubmit}
+              className="bg-gradient-to-r from-emerald-500 to-green-600 hover:opacity-90 text-white"
+              disabled={uploading}
+            >
+              {uploading
+                ? "Đang tải..."
+                : mode === "create"
+                ? "Thêm mới"
+                : "Lưu thay đổi"}
             </Button>
-          </DialogFooter>
-        </form>
+          )}
+        </div>
       </DialogContent>
     </Dialog>
   );

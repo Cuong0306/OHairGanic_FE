@@ -1,6 +1,44 @@
-node_modules
-dist
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# OS files
 .DS_Store
-server/public
-vite.config.ts.*
+Thumbs.db
+
+# IDE / Editor
+.vscode/
+.idea/
+*.iml
+
+# Local dev server public uploads
+server/public/
+
+# Archives / compressed files
 *.tar.gz
+*.zip
+
+# TypeScript config caches
+tsconfig.tsbuildinfo
+vite.config.ts.*
+
+# Coverage reports
+coverage/
+
+# Misc cache
+.cache/
+.temp/

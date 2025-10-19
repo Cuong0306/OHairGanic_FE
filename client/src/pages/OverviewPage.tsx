@@ -1,66 +1,93 @@
+import { useEffect, useState } from "react";
 import StatsCard from "@/components/StatsCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Users, Package, ShoppingCart, DollarSign } from "lucide-react";
-import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-
-// TODO: remove mock data
-const revenueData = [
-  { month: "T1", revenue: 45000000 },
-  { month: "T2", revenue: 52000000 },
-  { month: "T3", revenue: 48000000 },
-  { month: "T4", revenue: 61000000 },
-  { month: "T5", revenue: 55000000 },
-  { month: "T6", revenue: 67000000 },
-];
-
-const orderData = [
-  { month: "T1", orders: 145 },
-  { month: "T2", orders: 178 },
-  { month: "T3", orders: 165 },
-  { month: "T4", orders: 203 },
-  { month: "T5", orders: 189 },
-  { month: "T6", orders: 234 },
-];
+import {
+  LineChart,
+  Line,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
+import { dashboardApi, DashboardSummary } from "@/lib/APIs/dashboardApi";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 export default function OverviewPage() {
+  const [data, setData] = useState<DashboardSummary | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const result = await dashboardApi.getSummary();
+        setData(result);
+      } catch (err) {
+        console.error("❌ Lỗi tải Dashboard:", err);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
+
+  if (loading)
+    return (
+      <div className="p-8 text-sm text-muted-foreground">Đang tải dữ liệu...</div>
+    );
+
+  if (!data)
+    return (
+      <div className="p-8 text-sm text-red-500">
+        Không thể tải dữ liệu Dashboard.
+      </div>
+    );
+
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div>
         <h1 className="text-2xl font-semibold">Tổng quan</h1>
-        <p className="text-sm text-muted-foreground">Thống kê tổng quan hệ thống</p>
+        <p className="text-sm text-muted-foreground">
+          Thống kê tổng quan hệ thống
+        </p>
       </div>
 
+      {/* Thống kê tổng */}
       <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
         <StatsCard
           title="Tổng Users"
-          value="1,234"
+          value={data.totalUsers.toLocaleString("vi-VN")}
           icon={Users}
           description="Người dùng đã đăng ký"
           trend={{ value: "+12.5%", isPositive: true }}
         />
         <StatsCard
           title="Tổng Products"
-          value="567"
+          value={data.totalProducts.toLocaleString("vi-VN")}
           icon={Package}
           description="Sản phẩm đang bán"
           trend={{ value: "+8.2%", isPositive: true }}
         />
         <StatsCard
           title="Tổng Orders"
-          value="892"
+          value={data.totalOrders.toLocaleString("vi-VN")}
           icon={ShoppingCart}
-          description="Đơn hàng tháng này"
+          description="Đơn hàng trong hệ thống"
           trend={{ value: "+15.3%", isPositive: true }}
         />
         <StatsCard
-          title="Doanh thu"
-          value="67M VNĐ"
+          title="Doanh thu (đã thanh toán)"
+          value={`${data.totalRevenue.toLocaleString("vi-VN")} VNĐ`}
           icon={DollarSign}
-          description="Doanh thu tháng này"
+          description="Chỉ tính các đơn hàng PAID"
           trend={{ value: "+21.8%", isPositive: true }}
         />
       </div>
 
+      {/* Biểu đồ */}
       <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
         <Card>
           <CardHeader>
@@ -68,18 +95,30 @@ export default function OverviewPage() {
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={revenueData}>
+              <LineChart data={data.monthlyRevenue}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                 <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                <YAxis
+                  stroke="hsl(var(--muted-foreground))"
+                  fontSize={12}
+                  tickFormatter={(v) =>
+                    v.toLocaleString("vi-VN", { maximumFractionDigits: 0 })
+                  }
+                />
                 <Tooltip
+                  formatter={(value: number) => `${value.toLocaleString("vi-VN")} VNĐ`}
                   contentStyle={{
                     backgroundColor: "hsl(var(--card))",
                     border: "1px solid hsl(var(--border))",
                     borderRadius: "6px",
                   }}
                 />
-                <Line type="monotone" dataKey="revenue" stroke="hsl(var(--chart-1))" strokeWidth={2} />
+                <Line
+                  type="monotone"
+                  dataKey="revenue"
+                  stroke="hsl(var(--chart-1))"
+                  strokeWidth={2}
+                />
               </LineChart>
             </ResponsiveContainer>
           </CardContent>
@@ -91,11 +130,12 @@ export default function OverviewPage() {
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={orderData}>
+              <BarChart data={data.monthlyOrders}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                 <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" fontSize={12} />
                 <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
                 <Tooltip
+                  formatter={(value: number) => `${value.toLocaleString("vi-VN")} đơn`}
                   contentStyle={{
                     backgroundColor: "hsl(var(--card))",
                     border: "1px solid hsl(var(--border))",
@@ -108,6 +148,51 @@ export default function OverviewPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* ✅ Thêm bảng hiển thị đơn hàng đã thanh toán */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Đơn hàng đã thanh toán</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="border rounded-md overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>ID</TableHead>
+                  <TableHead>Ngày tạo</TableHead>
+                  <TableHead>Trạng thái thanh toán</TableHead>
+                  <TableHead className="text-right">Tổng tiền</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {data.orders && data.orders.length > 0 ? (
+                  data.orders.map((o) => (
+                    <TableRow key={o.id}>
+                      <TableCell>#{o.id}</TableCell>
+                      <TableCell>{new Date(o.createdAt).toLocaleString("vi-VN")}</TableCell>
+                      <TableCell>
+                        <span className="text-green-600 font-medium">
+                          {o.paymentStatus}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-right font-semibold text-emerald-600">
+                        {o.totalAmount.toLocaleString("vi-VN")}₫
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={4} className="text-center py-4 text-muted-foreground">
+                      Không có đơn hàng PAID nào.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

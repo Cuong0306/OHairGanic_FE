@@ -6,33 +6,39 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Lock } from "lucide-react";
+import { authApi } from "@/lib/APIs/authApi";
 
 export default function LoginPage() {
-  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [, setLocation] = useLocation();
   const { toast } = useToast();
 
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    // Mock authentication - accept any username/password
-    if (username && password) {
-      localStorage.setItem("isAuthenticated", "true");
-      localStorage.setItem("adminUsername", username);
-      toast({
-        title: "Đăng nhập thành công",
-        description: `Chào mừng ${username}!`,
-      });
-      setLocation("/");
-    } else {
-      toast({
-        title: "Lỗi đăng nhập",
-        description: "Vui lòng nhập tên đăng nhập và mật khẩu",
-        variant: "destructive",
-      });
-    }
-  };
+ const handleLogin = async (e: React.FormEvent) => {
+  e.preventDefault();
+  try {
+    const res = await authApi.login({ email, password });
+
+    // ✅ Lưu token và cờ đăng nhập
+    localStorage.setItem("access_token", res.token);
+    localStorage.setItem("isAuthenticated", "true");
+
+    toast({
+      title: "Đăng nhập thành công",
+      description: `Chào mừng ${email}!`,
+    });
+
+    // ✅ Chuyển sang trang admin dashboard
+    setLocation("/");
+  } catch (err: any) {
+    toast({
+      title: "Lỗi đăng nhập",
+      description: err.message || "Sai email hoặc mật khẩu",
+      variant: "destructive",
+    });
+  }
+};
+
 
   return (
     <div className="min-h-screen w-full flex items-center justify-center bg-background p-4">
@@ -49,17 +55,18 @@ export default function LoginPage() {
         <CardContent>
           <form onSubmit={handleLogin} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="username">Tên đăng nhập</Label>
+              <Label htmlFor="email">Email</Label>
               <Input
-                id="username"
-                data-testid="input-username"
-                type="text"
-                placeholder="Nhập tên đăng nhập"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                autoComplete="username"
+                id="email"
+                data-testid="input-email"
+                type="email"
+                placeholder="Nhập email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                autoComplete="email"
               />
             </div>
+
             <div className="space-y-2">
               <Label htmlFor="password">Mật khẩu</Label>
               <Input
@@ -72,15 +79,13 @@ export default function LoginPage() {
                 autoComplete="current-password"
               />
             </div>
-            <Button
-              type="submit"
-              className="w-full"
-              data-testid="button-login"
-            >
+
+            <Button type="submit" className="w-full" data-testid="button-login">
               Đăng nhập
             </Button>
+
             <p className="text-xs text-muted-foreground text-center mt-4">
-              Demo: Nhập bất kỳ tên đăng nhập và mật khẩu
+              Trang quản trị hệ thống OHairGanic
             </p>
           </form>
         </CardContent>

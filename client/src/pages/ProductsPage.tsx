@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -10,149 +10,240 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, Pencil, Trash2 } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, Eye } from "lucide-react";
 import ProductDialog from "@/components/ProductDialog";
-import type { Product } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
+import { productsApi } from "@/lib/APIs/productsApi";
+import type { ProductDTO } from "@/types/ProductDTO";
 
-// TODO: remove mock data
-const mockProducts: Product[] = [
-  { id: "1", name: "Laptop Dell XPS 13", category: "Electronics", price: "25000000", stock: 15, status: "active" },
-  { id: "2", name: "iPhone 15 Pro", category: "Electronics", price: "28000000", stock: 8, status: "active" },
-  { id: "3", name: "Áo thun Nike", category: "Clothing", price: "450000", stock: 45, status: "active" },
-  { id: "4", name: "Sách lập trình Python", category: "Books", price: "320000", stock: 0, status: "inactive" },
-  { id: "5", name: "Chuột Gaming Logitech", category: "Electronics", price: "1200000", stock: 23, status: "active" },
-];
+interface Product {
+  id: number;
+  name: string;
+  category: string;
+  price: number;
+  stock: number;
+  status: string;
+  imageUrl?: string;
+  createdAt: string; // ✅ thêm
+}
 
 export default function ProductsPage() {
-  const [products, setProducts] = useState<Product[]>(mockProducts);
+  const [products, setProducts] = useState<Product[]>([]);
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [mode, setMode] = useState<"create" | "edit" | "view">("create");
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const { toast } = useToast();
 
-  const filteredProducts = products.filter(
-    (product) =>
-      product.name.toLowerCase().includes(search.toLowerCase()) ||
-      product.category.toLowerCase().includes(search.toLowerCase())
-  );
+  // ===== Load danh sách sản phẩm =====
+  const loadProducts = async () => {
+    try {
+      const data: ProductDTO[] = await productsApi.list();
+      const mapped: Product[] = data.map((p) => ({
+        id: p.productId,
+        name: p.productName,
+        category: p.tags,
+        price: p.price,
+        stock: p.stock,
+        imageUrl: p.imageUrl || "",
+        status: p.isActive ? "active" : "inactive",
+        createdAt: p.createdAt, // ✅ lấy ngày tạo
+      }));
+      setProducts(mapped);
+    } catch (err: any) {
+      toast({
+        title: "Lỗi tải danh sách",
+        description: err.message,
+        variant: "destructive",
+      });
+    }
+  };
 
+  useEffect(() => {
+    loadProducts();
+  }, []);
+
+  // ===== CRUD =====
   const handleAdd = () => {
     setSelectedProduct(null);
+    setMode("create");
     setDialogOpen(true);
   };
 
   const handleEdit = (product: Product) => {
     setSelectedProduct(product);
+    setMode("edit");
     setDialogOpen(true);
   };
 
-  const handleDelete = (productId: string) => {
-    setProducts(products.filter((p) => p.id !== productId));
-    toast({
-      title: "Đã xóa sản phẩm",
-      description: "Sản phẩm đã được xóa thành công",
-    });
+  const handleView = (product: Product) => {
+    setSelectedProduct(product);
+    setMode("view");
+    setDialogOpen(true);
   };
 
-  const handleSave = (productData: Partial<Product>) => {
-    if (selectedProduct) {
-      setProducts(products.map((p) => (p.id === selectedProduct.id ? { ...p, ...productData } : p)));
+  const handleDelete = async (id: number) => {
+    try {
+      await productsApi.remove(id);
       toast({
-        title: "Đã cập nhật sản phẩm",
-        description: "Thông tin sản phẩm đã được cập nhật",
+        title: "Đã xóa sản phẩm",
+        description: `Sản phẩm ID ${id} đã được xóa.`,
       });
-    } else {
-      const newProduct: Product = {
-        id: String(products.length + 1),
-        ...productData,
-      } as Product;
-      setProducts([...products, newProduct]);
+      loadProducts();
+    } catch (err: any) {
       toast({
-        title: "Đã thêm sản phẩm",
-        description: "Sản phẩm mới đã được thêm thành công",
+        title: "Lỗi khi xóa sản phẩm",
+        description: err.message,
+        variant: "destructive",
       });
     }
   };
 
-  const formatPrice = (price: string) => {
-    return new Intl.NumberFormat("vi-VN", {
-      style: "currency",
-      currency: "VND",
-    }).format(Number(price));
+  const handleSave = async (data: Partial<Product>) => {
+    try {
+      if (selectedProduct) {
+        // Cập nhật
+        await productsApi.update(selectedProduct.id, {
+          productName: data.name || "",
+          tags: data.category || "",
+          price: data.price || 0,
+          stock: data.stock || 0,
+          imageUrl: data.imageUrl || "",
+          isActive: data.status === "active",
+        });
+        toast({ title: "Đã cập nhật sản phẩm" });
+      } else {
+        // Tạo mới
+        await productsApi.create({
+          productName: data.name || "",
+          tags: data.category || "",
+          price: data.price || 0,
+          stock: data.stock || 0,
+          imageUrl: data.imageUrl || "",
+          isActive: data.status === "active",
+        });
+        toast({ title: "Đã thêm sản phẩm mới" });
+      }
+      setDialogOpen(false);
+      loadProducts();
+    } catch (err: any) {
+      toast({
+        title: "Lỗi khi lưu sản phẩm",
+        description: err.message,
+        variant: "destructive",
+      });
+    }
   };
 
+  // ===== Helper =====
+  const formatPrice = (price: number) =>
+    new Intl.NumberFormat("vi-VN", {
+      style: "currency",
+      currency: "VND",
+    }).format(price);
+
+  const formatDate = (iso?: string) => {
+    if (!iso) return "";
+    const d = new Date(iso);
+    return d.toLocaleString("vi-VN", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      
+    });
+  };
+
+  const filtered = products.filter((p) =>
+    [p.name, p.category].some((x) =>
+      x.toLowerCase().includes(search.toLowerCase())
+    )
+  );
+
+  // ===== Render =====
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
+      <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-semibold">Quản lý Products</h1>
-          <p className="text-sm text-muted-foreground">Quản lý danh sách sản phẩm</p>
+          <p className="text-sm text-muted-foreground">
+            Quản lý danh sách sản phẩm trong hệ thống
+          </p>
         </div>
-        <Button onClick={handleAdd} data-testid="button-add-product">
-          <Plus className="h-4 w-4 mr-2" />
-          Thêm Product
+        <Button onClick={handleAdd}>
+          <Plus className="w-4 h-4 mr-2" /> Thêm Product
         </Button>
       </div>
 
-      <div className="flex items-center gap-4">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Tìm kiếm sản phẩm..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
-            data-testid="input-search-products"
-          />
-        </div>
+      {/* Tìm kiếm */}
+      <div className="relative max-w-sm">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder="Tìm kiếm sản phẩm..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="pl-9"
+        />
       </div>
 
+      {/* Bảng sản phẩm */}
       <div className="border rounded-md">
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead>Ảnh</TableHead>
               <TableHead>Tên sản phẩm</TableHead>
               <TableHead>Danh mục</TableHead>
               <TableHead>Giá</TableHead>
               <TableHead>Tồn kho</TableHead>
               <TableHead>Trạng thái</TableHead>
+              <TableHead>Ngày tạo</TableHead> {/* ✅ thêm */}
               <TableHead className="text-right">Thao tác</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredProducts.map((product) => (
-              <TableRow key={product.id} data-testid={`row-product-${product.id}`}>
-                <TableCell className="font-medium">{product.name}</TableCell>
-                <TableCell>{product.category}</TableCell>
-                <TableCell>{formatPrice(product.price)}</TableCell>
+            {filtered.map((p) => (
+              <TableRow key={p.id}>
                 <TableCell>
-                  <Badge variant={product.stock > 10 ? "default" : product.stock > 0 ? "secondary" : "destructive"}>
-                    {product.stock}
+                  {p.imageUrl ? (
+                    <img
+                      src={p.imageUrl}
+                      alt={p.name}
+                      className="w-12 h-12 rounded object-cover"
+                    />
+                  ) : (
+                    <span className="text-xs text-gray-400">(Không ảnh)</span>
+                  )}
+                </TableCell>
+                <TableCell className="font-medium">{p.name}</TableCell>
+                <TableCell>{p.category}</TableCell>
+                <TableCell>{formatPrice(p.price)}</TableCell>
+                <TableCell>
+                  <Badge variant={p.stock === 0 ? "destructive" : "default"}>
+                    {p.stock}
                   </Badge>
                 </TableCell>
                 <TableCell>
-                  <Badge variant={product.status === "active" ? "default" : "secondary"}>
-                    {product.status === "active" ? "Hoạt động" : "Không hoạt động"}
+                  <Badge
+                    variant={p.status === "active" ? "default" : "secondary"}
+                  >
+                    {p.status === "active" ? "Hoạt động" : "Không hoạt động"}
                   </Badge>
                 </TableCell>
+                <TableCell>{formatDate(p.createdAt)}</TableCell> {/* ✅ hiển thị ngày */}
                 <TableCell className="text-right">
-                  <div className="flex justify-end gap-2">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleEdit(product)}
-                      data-testid={`button-edit-${product.id}`}
-                    >
-                      <Pencil className="h-4 w-4" />
+                  <div className="flex gap-2 justify-end">
+                    <Button variant="ghost" size="icon" onClick={() => handleView(p)}>
+                      <Eye className="w-4 h-4" />
+                    </Button>
+                    <Button variant="ghost" size="icon" onClick={() => handleEdit(p)}>
+                      <Pencil className="w-4 h-4" />
                     </Button>
                     <Button
                       variant="ghost"
                       size="icon"
-                      onClick={() => handleDelete(product.id)}
-                      data-testid={`button-delete-${product.id}`}
+                      onClick={() => handleDelete(p.id)}
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <Trash2 className="w-4 h-4" />
                     </Button>
                   </div>
                 </TableCell>
@@ -162,11 +253,14 @@ export default function ProductsPage() {
         </Table>
       </div>
 
+      {/* ✅ Dialog dùng chung cho cả Create/Edit/View */}
       <ProductDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
+        mode={mode}
         product={selectedProduct}
         onSave={handleSave}
+        onDelete={(id) => handleDelete(id)}
       />
     </div>
   );

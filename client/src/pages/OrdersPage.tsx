@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
 import {
   Table,
@@ -10,160 +10,168 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Search } from "lucide-react";
-import type { Order } from "@shared/schema";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ordersApi } from "@/lib/APIs/ordersApi";
+import { useToast } from "@/hooks/use-toast";
+import OrderDetailDialog from "@/components/OrderDetailDialog";
 
-// TODO: remove mock data
-const mockOrders: Order[] = [
-  {
-    id: "1",
-    customerName: "Nguyễn Văn A",
-    productName: "Laptop Dell XPS 13",
-    quantity: 1,
-    total: "25000000",
-    status: "completed",
-    createdAt: new Date("2024-01-15"),
-  },
-  {
-    id: "2",
-    customerName: "Trần Thị B",
-    productName: "iPhone 15 Pro",
-    quantity: 2,
-    total: "56000000",
-    status: "processing",
-    createdAt: new Date("2024-01-16"),
-  },
-  {
-    id: "3",
-    customerName: "Lê Văn C",
-    productName: "Áo thun Nike",
-    quantity: 3,
-    total: "1350000",
-    status: "pending",
-    createdAt: new Date("2024-01-17"),
-  },
-  {
-    id: "4",
-    customerName: "Phạm Thị D",
-    productName: "Chuột Gaming Logitech",
-    quantity: 1,
-    total: "1200000",
-    status: "completed",
-    createdAt: new Date("2024-01-18"),
-  },
-  {
-    id: "5",
-    customerName: "Hoàng Văn E",
-    productName: "Sách lập trình Python",
-    quantity: 2,
-    total: "640000",
-    status: "cancelled",
-    createdAt: new Date("2024-01-19"),
-  },
-];
-
-const statusColors: Record<string, "default" | "secondary" | "destructive"> = {
-  pending: "secondary",
-  processing: "default",
-  completed: "default",
-  cancelled: "destructive",
-};
-
-const statusLabels: Record<string, string> = {
-  pending: "Chờ xử lý",
-  processing: "Đang xử lý",
-  completed: "Hoàn thành",
-  cancelled: "Đã hủy",
-};
+interface Order {
+  id: number;
+  userId: number;
+  customerName?: string;
+  status: string;
+  createdAt: string;
+  totalAmount: number;
+  paymentStatus: string;
+}
 
 export default function OrdersPage() {
-  const [orders] = useState<Order[]>(mockOrders);
+  const [orders, setOrders] = useState<Order[]>([]);
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
+  const [selectedOrder, setSelectedOrder] = useState<number | null>(null);
+  const [open, setOpen] = useState(false);
+  const { toast } = useToast();
 
-  const filteredOrders = orders.filter((order) => {
-    const matchSearch =
-      order.customerName.toLowerCase().includes(search.toLowerCase()) ||
-      order.productName.toLowerCase().includes(search.toLowerCase());
-    const matchStatus = statusFilter === "all" || order.status === statusFilter;
-    return matchSearch && matchStatus;
-  });
-
-  const formatPrice = (price: string) => {
-    return new Intl.NumberFormat("vi-VN", {
-      style: "currency",
-      currency: "VND",
-    }).format(Number(price));
+  const loadOrders = async () => {
+    try {
+      const data = await ordersApi.list();
+      setOrders(data);
+    } catch (e: any) {
+      toast({
+        title: "Lỗi tải danh sách đơn hàng",
+        description: e.message,
+        variant: "destructive",
+      });
+    }
   };
 
-  const formatDate = (date: Date) => {
-    return new Intl.DateTimeFormat("vi-VN").format(date);
+  useEffect(() => {
+    loadOrders();
+  }, []);
+
+  const filtered = orders.filter(
+    (o) =>
+      o.customerName?.toLowerCase().includes(search.toLowerCase()) ||
+      o.status.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const formatCurrency = (value: number) =>
+    new Intl.NumberFormat("vi-VN", {
+      style: "currency",
+      currency: "VND",
+    }).format(value);
+
+  // ✅ Helper: màu cho trạng thái đơn hàng
+  const getStatusClass = (status: string) => {
+    switch (status) {
+      case "PENDING":
+        return "bg-yellow-100 text-yellow-800";
+      case "CONFIRMED":
+        return "bg-blue-100 text-blue-800";
+      case "SHIPPED":
+        return "bg-sky-100 text-sky-800";
+      case "CANCELLED":
+        return "bg-red-100 text-red-800";
+      case "COMPLETED":
+        return "bg-green-100 text-green-800";
+      default:
+        return "bg-gray-100 text-gray-800";
+    }
+  };
+
+  // ✅ Helper: màu cho trạng thái thanh toán
+  const getPaymentClass = (status: string) => {
+    switch (status) {
+      case "PAID":
+        return "bg-green-100 text-green-800";
+      case "UNPAID":
+        return "bg-red-100 text-red-800";
+      default:
+        return "bg-gray-100 text-gray-800";
+    }
   };
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold">Quản lý Orders</h1>
-        <p className="text-sm text-muted-foreground">Quản lý danh sách đơn hàng</p>
+        <h1 className="text-2xl font-semibold">Quản lý đơn hàng</h1>
+        <p className="text-sm text-muted-foreground">
+          Danh sách tất cả đơn hàng từ hệ thống
+        </p>
       </div>
 
-      <div className="flex flex-wrap items-center gap-4">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Tìm kiếm đơn hàng..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
-            data-testid="input-search-orders"
-          />
-        </div>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-[180px]" data-testid="select-status-filter">
-            <SelectValue placeholder="Lọc theo trạng thái" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Tất cả</SelectItem>
-            <SelectItem value="pending">Chờ xử lý</SelectItem>
-            <SelectItem value="processing">Đang xử lý</SelectItem>
-            <SelectItem value="completed">Hoàn thành</SelectItem>
-            <SelectItem value="cancelled">Đã hủy</SelectItem>
-          </SelectContent>
-        </Select>
+      {/* Ô tìm kiếm */}
+      <div className="relative flex-1 max-w-sm">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder="Tìm kiếm khách hàng hoặc trạng thái..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="pl-9"
+        />
       </div>
 
-      <div className="border rounded-md">
+      {/* Bảng hiển thị */}
+      <div className="border rounded-md overflow-hidden">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Mã đơn</TableHead>
+              <TableHead>ID</TableHead>
               <TableHead>Khách hàng</TableHead>
-              <TableHead>Sản phẩm</TableHead>
-              <TableHead>Số lượng</TableHead>
-              <TableHead>Tổng tiền</TableHead>
               <TableHead>Trạng thái</TableHead>
+              <TableHead>Tổng tiền</TableHead>
+              <TableHead>Thanh toán</TableHead>
               <TableHead>Ngày tạo</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredOrders.map((order) => (
-              <TableRow key={order.id} data-testid={`row-order-${order.id}`}>
-                <TableCell className="font-medium">#{order.id}</TableCell>
-                <TableCell>{order.customerName}</TableCell>
-                <TableCell>{order.productName}</TableCell>
-                <TableCell>{order.quantity}</TableCell>
-                <TableCell>{formatPrice(order.total)}</TableCell>
+            {filtered.map((o) => (
+              <TableRow
+                key={o.id}
+                onClick={() => {
+                  setSelectedOrder(o.id);
+                  setOpen(true);
+                }}
+                className="cursor-pointer hover:bg-muted/30"
+              >
+                <TableCell>#{o.id}</TableCell>
+                <TableCell>{o.customerName || "Ẩn danh"}</TableCell>
+
+                {/* ✅ Màu trạng thái đơn hàng */}
                 <TableCell>
-                  <Badge variant={statusColors[order.status]}>
-                    {statusLabels[order.status]}
+                  <Badge className={getStatusClass(o.status)}>
+                    {o.status}
                   </Badge>
                 </TableCell>
-                <TableCell>{formatDate(order.createdAt)}</TableCell>
+
+                <TableCell>{formatCurrency(o.totalAmount)}</TableCell>
+
+                {/* ✅ Màu trạng thái thanh toán */}
+                <TableCell>
+                  <Badge className={getPaymentClass(o.paymentStatus)}>
+                    {o.paymentStatus}
+                  </Badge>
+                </TableCell>
+
+                {/* ✅ Hiển thị ngày tạo dạng dd/MM/yyyy */}
+                <TableCell>
+                  {new Date(o.createdAt).toLocaleDateString("vi-VN", {
+                    day: "2-digit",
+                    month: "2-digit",
+                    year: "numeric",
+                  })}
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
       </div>
+
+      <OrderDetailDialog
+        id={selectedOrder}
+        open={open}
+        onOpenChange={setOpen}
+        onUpdated={loadOrders}
+      />
     </div>
   );
 }
