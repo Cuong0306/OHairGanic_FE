@@ -21,7 +21,7 @@ export interface LoginResponse {
 
 export const authApi = {
   login: (payload: LoginRequest) =>
-    fetchJson<LoginResponse>("/api/auth/login", {
+    fetchJson<LoginResponse>("/auth/login", {
       method: "POST",
       body: JSON.stringify(payload),
     }),
