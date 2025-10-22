@@ -112,3 +112,4 @@ export const productsApi = {
     await request<void>(`/products/${id}`, { method: "DELETE" });
   },
 };
+ 
