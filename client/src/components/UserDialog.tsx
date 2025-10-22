@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useTheme } from "@/components/ThemeProvider"; // ✅ lấy từ custom provider
 import {
   Dialog,
   DialogContent,
@@ -31,6 +32,7 @@ export default function UserDialog({
   user,
   onSave,
 }: UserDialogProps) {
+  const { theme } = useTheme(); // ✅ lấy theme hiện tại
   const [form, setForm] = useState<Partial<UserDTO & { password?: string }>>({
     fullName: "",
     email: "",
@@ -40,7 +42,6 @@ export default function UserDialog({
     password: "",
   });
 
-  // ✅ Khi chọn user hoặc mở dialog → đồng bộ dữ liệu form
   useEffect(() => {
     if (user) {
       setForm({
@@ -70,9 +71,15 @@ export default function UserDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md rounded-2xl border border-slate-700 bg-slate-900 text-white shadow-2xl">
+      <DialogContent
+        className={`max-w-md rounded-2xl border shadow-xl transition-colors ${
+          theme === "dark"
+            ? "bg-slate-900 text-white border-slate-700"
+            : "bg-white text-gray-900 border-gray-300"
+        }`}
+      >
         <DialogHeader>
-          <DialogTitle className="text-xl font-semibold text-white">
+          <DialogTitle className="text-xl font-semibold">
             {user ? "Chỉnh sửa người dùng" : "Thêm người dùng mới"}
           </DialogTitle>
         </DialogHeader>
@@ -81,7 +88,11 @@ export default function UserDialog({
           <div>
             <Label>Họ tên</Label>
             <Input
-              className="text-black"
+              className={`mt-1 ${
+                theme === "dark"
+                  ? "bg-slate-800 text-white border-gray-600"
+                  : "bg-gray-50 text-gray-900 border-gray-300"
+              }`}
               value={form.fullName}
               onChange={(e) => setForm({ ...form, fullName: e.target.value })}
               required
@@ -91,8 +102,12 @@ export default function UserDialog({
           <div>
             <Label>Email</Label>
             <Input
-              className="text-black"
               type="email"
+              className={`mt-1 ${
+                theme === "dark"
+                  ? "bg-slate-800 text-white border-gray-600"
+                  : "bg-gray-50 text-gray-900 border-gray-300"
+              }`}
               value={form.email}
               onChange={(e) => setForm({ ...form, email: e.target.value })}
               required
@@ -103,9 +118,13 @@ export default function UserDialog({
             <div>
               <Label>Mật khẩu</Label>
               <Input
-                className="text-black"
                 type="password"
                 placeholder="Tối thiểu 8 ký tự"
+                className={`mt-1 ${
+                  theme === "dark"
+                    ? "bg-slate-800 text-white border-gray-600"
+                    : "bg-gray-50 text-gray-900 border-gray-300"
+                }`}
                 value={form.password}
                 onChange={(e) => setForm({ ...form, password: e.target.value })}
                 required
@@ -116,8 +135,12 @@ export default function UserDialog({
           <div>
             <Label>Số điện thoại</Label>
             <Input
-              className="text-black"
               type="tel"
+              className={`mt-1 ${
+                theme === "dark"
+                  ? "bg-slate-800 text-white border-gray-600"
+                  : "bg-gray-50 text-gray-900 border-gray-300"
+              }`}
               value={form.phoneNumber ?? ""}
               onChange={(e) => setForm({ ...form, phoneNumber: e.target.value })}
             />
@@ -129,10 +152,20 @@ export default function UserDialog({
               value={form.role}
               onValueChange={(v) => setForm({ ...form, role: v as UserDTO["role"] })}
             >
-              <SelectTrigger className="text-black bg-white">
+              <SelectTrigger
+                className={`mt-1 ${
+                  theme === "dark"
+                    ? "bg-slate-800 text-white border-gray-600"
+                    : "bg-gray-50 text-gray-900 border-gray-300"
+                }`}
+              >
                 <SelectValue placeholder="Chọn vai trò" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent
+                className={`${
+                  theme === "dark" ? "bg-slate-800 text-white" : "bg-white text-gray-900"
+                }`}
+              >
                 <SelectItem value="Admin">Admin</SelectItem>
                 <SelectItem value="User">User</SelectItem>
               </SelectContent>
@@ -145,28 +178,44 @@ export default function UserDialog({
               value={form.status}
               onValueChange={(v) => setForm({ ...form, status: v as UserDTO["status"] })}
             >
-              <SelectTrigger className="text-black bg-white">
+              <SelectTrigger
+                className={`mt-1 ${
+                  theme === "dark"
+                    ? "bg-slate-800 text-white border-gray-600"
+                    : "bg-gray-50 text-gray-900 border-gray-300"
+                }`}
+              >
                 <SelectValue placeholder="Chọn trạng thái" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent
+                className={`${
+                  theme === "dark" ? "bg-slate-800 text-white" : "bg-white text-gray-900"
+                }`}
+              >
                 <SelectItem value="Active">Hoạt động</SelectItem>
                 <SelectItem value="Inactive">Không hoạt động</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
-          <DialogFooter className="pt-2">
+          <DialogFooter className="pt-3 flex gap-2">
             <Button
               type="button"
               variant="outline"
-              className="text-white border-gray-400 hover:bg-gray-800"
               onClick={() => onOpenChange(false)}
+              className={`border ${
+                theme === "dark"
+                  ? "border-gray-600 text-white hover:bg-slate-800"
+                  : "border-gray-400 text-gray-900 hover:bg-gray-100"
+              }`}
             >
               Hủy
             </Button>
             <Button
               type="submit"
-              className="bg-gradient-to-r from-emerald-500 to-green-600 text-white hover:opacity-90"
+              className={`bg-gradient-to-r from-emerald-500 to-green-600 text-white hover:opacity-90 ${
+                theme === "dark" ? "from-emerald-600 to-green-700" : ""
+              }`}
             >
               {user ? "Lưu thay đổi" : "Thêm mới"}
             </Button>

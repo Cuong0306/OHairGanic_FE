@@ -54,25 +54,25 @@ async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
 // =======================
 export const usersApi = {
   // 🔹 Lấy toàn bộ danh sách user
-  list: () => fetchJson<UserDTO[]>("/api/user/all"),
+  list: () => fetchJson<UserDTO[]>("/user/all"),
 
   // 🔹 Tạo user mới (Swagger: POST /api/auth/register)
   create: (payload: CreateUserDTO) =>
-    fetchJson<UserDTO>("/api/auth/register", {
+    fetchJson<UserDTO>("/auth/register", {
       method: "POST",
       body: JSON.stringify(payload),
     }),
 
   // 🔹 Cập nhật user (Swagger: PUT /api/user/update)
   update: (id: number, patch: UpdateUserDTO) =>
-    fetchJson<UserDTO | string>("/api/user/update", {
+    fetchJson<UserDTO | string>("/user/update", {
       method: "PUT",
       body: JSON.stringify({ id, ...patch }),
     }),
 
   // 🔹 Xóa mềm user (Swagger: DELETE /api/user/delete-soft/{id})
   remove: (id: number) =>
-    fetchJson<void | string>(`/api/user/delete-soft/${id}`, {
+    fetchJson<void | string>(`/user/delete-soft/${id}`, {
       method: "DELETE",
     }),
 };

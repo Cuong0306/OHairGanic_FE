@@ -1,19 +1,22 @@
+// src/types/UserDTO.ts
 // =======================
 // User Types — Đồng bộ theo backend OHairGanic
 // =======================
 
-// 🔹 Dữ liệu trả về từ backend (GET /api/user/all)
 export interface UserDTO {
-  userId: number; // từ backend
+  id: number;
   fullName: string;
   email: string;
   phoneNumber: string | null;
   role: "Admin" | "User";
   status: "Active" | "Inactive";
+  // Backend có thể trả nhiều tên field khác nhau cho thời điểm tạo → normalize ở UI
   createdAt?: string;
+  createdDate?: string;
+  created?: string;
 }
 
-// 🔹 Dữ liệu khi tạo mới user (POST /api/auth/register)
+// Dữ liệu khi tạo mới user (POST /api/auth/register)
 export interface CreateUserDTO {
   fullName: string;
   email: string;
@@ -23,9 +26,9 @@ export interface CreateUserDTO {
   status: "Active" | "Inactive";
 }
 
-// 🔹 Dữ liệu khi cập nhật user (PUT /api/user/update)
+// Dữ liệu khi cập nhật user (PUT /api/user/update) — dùng fullName, KHÔNG dùng displayName
 export interface UpdateUserDTO {
-  displayName: string;
+  fullName: string;
   email: string;
   phoneNumber?: string | null;
   role: "Admin" | "User";

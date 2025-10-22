@@ -18,5 +18,5 @@ export interface DashboardSummary {
 }
 
 export const dashboardApi = {
-  getSummary: () => fetchJson<DashboardSummary>("/api/dashboard/summary"),
+  getSummary: () => fetchJson<DashboardSummary>("/dashboard/summary"),
 };

@@ -3,7 +3,7 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, "") || "";
 export const ordersApi = {
   // Lấy danh sách đơn hàng
   async list() {
-    const res = await fetch(`${API_BASE}/api/orders`, {
+    const res = await fetch(`${API_BASE}/orders`, {
       headers: {
         Authorization: `Bearer ${localStorage.getItem("access_token")}`,
       },
@@ -14,7 +14,7 @@ export const ordersApi = {
 
   // Lấy chi tiết đơn hàng theo id
   async getById(id: number) {
-    const res = await fetch(`${API_BASE}/api/orders/${id}`, {
+    const res = await fetch(`${API_BASE}/orders/${id}`, {
       headers: {
         Authorization: `Bearer ${localStorage.getItem("access_token")}`,
       },
@@ -25,7 +25,7 @@ export const ordersApi = {
 
   // ✅ Admin cập nhật trạng thái đơn hàng và thanh toán
   async adminUpdateStatus(orderId: number, orderStatus: string, paymentStatus?: string) {
-    const res = await fetch(`${API_BASE}/api/orders/admin/update-status`, {
+    const res = await fetch(`${API_BASE}/orders/admin/update-status`, {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
