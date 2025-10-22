@@ -1,33 +1,45 @@
-// src/lib/APIs/productsApi.ts
-import type { ApiProduct, CreateProductDTO, UpdateProductDTO, UiProduct } from "@/types/ProductDTO";
+import type {
+  ApiProduct,
+  CreateProductDTO,
+  UpdateProductDTO,
+  UiProduct,
+} from "@/types/ProductDTO";
 
-const API_BASE = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/$/, "");
+const API_BASE = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, "") || "";
 
-function isJsonLike(res: Response) {
-  const ct = res.headers.get("content-type") || "";
-  return ct.includes("application/json");
-}
-
+// ─────────────────────────────
+//  Helper function: chuẩn hóa header & fetch
+// ─────────────────────────────
 async function request<T = any>(path: string, init: RequestInit = {}): Promise<T> {
   const url = path.startsWith("http") ? path : `${API_BASE}${path}`;
   const token = localStorage.getItem("access_token");
-  const hasBody = !!init.body && !(init.body instanceof FormData);
-  const baseHeaders: HeadersInit = hasBody ? { "Content-Type": "application/json" } : {};
-  const headers: HeadersInit = { ...baseHeaders, ...(init.headers || {}), ...(token ? { Authorization: `Bearer ${token}` } : {}) };
 
-  const res = await fetch(url, { credentials: "include", ...init, headers });
+  const headers: HeadersInit = {
+    ...(init.headers || {}),
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+
+  const res = await fetch(url, {
+    ...init,
+    headers,
+  });
+
   if (!res.ok) {
-    let detail = "";
-    try { detail = isJsonLike(res) ? JSON.stringify(await res.json()) : await res.text(); } catch {}
-    console.error("❌ API ERROR", { url, status: res.status, method: init.method, sentBody: init.body, detail });
-    throw new Error(detail || `HTTP ${res.status}`);
+    const msg = await res.text();
+    throw new Error(`HTTP ${res.status}: ${msg}`);
   }
+
   if (res.status === 204) return undefined as T;
-  if (!isJsonLike(res)) return undefined as T;
-  return res.json() as Promise<T>;
+  try {
+    return (await res.json()) as T;
+  } catch {
+    return undefined as T;
+  }
 }
 
-// Map BE <-> UI
+// ─────────────────────────────
+//  Mapping giữa BE ↔ UI
+// ─────────────────────────────
 const toUi = (p: ApiProduct): UiProduct => ({
   productId: p.productId,
   name: p.productName,
@@ -63,22 +75,40 @@ const toUpdateDto = (u: Partial<UiProduct>): UpdateProductDTO => {
   return dto;
 };
 
+// ─────────────────────────────
+//  PRODUCTS API — header giống ordersApi
+// ─────────────────────────────
 export const productsApi = {
-  list: async (): Promise<UiProduct[]> => {
+  // 🔹 Lấy danh sách sản phẩm
+  async list(): Promise<UiProduct[]> {
     const data = await request<ApiProduct[]>("/products");
     return (data || []).map(toUi);
   },
-  create: async (u: Partial<UiProduct>): Promise<UiProduct> => {
+
+  // 🔹 Tạo mới sản phẩm
+  async create(u: Partial<UiProduct>): Promise<UiProduct> {
     const dto = toCreateDto(u);
-    const created = await request<ApiProduct>("/products", { method: "POST", body: JSON.stringify(dto) });
-    return toUi(created);
+    const res = await request<ApiProduct>("/products", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(dto),
+    });
+    return toUi(res);
   },
-  update: async (id: number, u: Partial<UiProduct>): Promise<UiProduct | void> => {
+
+  // 🔹 Cập nhật sản phẩm
+  async update(id: number, u: Partial<UiProduct>): Promise<UiProduct | void> {
     const dto = toUpdateDto(u);
-    // Nếu BE trả về body sau khi update, giữ lại kiểu ApiProduct; nếu trả 204 thì hàm trả void
-    const updated = await request<ApiProduct | void>(`/products/${id}`, { method: "PUT", body: JSON.stringify(dto) });
-    
-    return updated ? toUi(updated as ApiProduct) : undefined;
+    const res = await request<ApiProduct | void>(`/products/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(dto),
+    });
+    return res ? toUi(res as ApiProduct) : undefined;
   },
-  remove: (id: number) => request<void>(`/products/${id}`, { method: "DELETE" }),
+
+  // 🔹 Xóa sản phẩm
+  async remove(id: number): Promise<void> {
+    await request<void>(`/products/${id}`, { method: "DELETE" });
+  },
 };
