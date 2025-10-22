@@ -32,18 +32,5 @@ export default defineConfig({
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
   },
-  server: {
-    port: 5000,               // FE chạy ở http://localhost:5000
-    proxy: {
-      "/api": {
-        target: "https://localhost:7297", // === đúng port Swagger của .NET
-        changeOrigin: true,
-        secure: false,        // chấp nhận dev certificate HTTPS
-      },
-    },
-    fs: {
-      strict: true,
-      deny: ["**/.*"],
-    },
-  },
+  
 });
