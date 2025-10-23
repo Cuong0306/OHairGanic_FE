@@ -1,78 +1,53 @@
 import type { UserDTO, CreateUserDTO, UpdateUserDTO } from "@/types/UserDTO";
 
-// 🔹 Lấy base URL từ file .env
 const API_BASE = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, "") || "";
-console.log("📡 API_BASE =", API_BASE);
+const baseInit: RequestInit = { mode: "cors", credentials: "omit" }; // 👈 quan trọng
 
-// =======================
-// Hàm fetchJson chuẩn dùng chung (hỗ trợ text/plain + JSON)
-// =======================
-async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
-  const url = path.startsWith("http") ? path : `${API_BASE}${path}`;
-  const token = localStorage.getItem("access_token");
+const authHeader = () => ({
+  Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+});
 
-  const res = await fetch(url, {
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-    credentials: "include",
-    ...init,
-  });
-
-  const ct = res.headers.get("content-type") || "";
-
-  if (!res.ok) {
-    let msg = `HTTP ${res.status}`;
-    try {
-      if (ct.includes("application/json")) {
-        const j = await res.json();
-        msg = j?.message || JSON.stringify(j);
-      } else {
-        msg = await res.text();
-      }
-    } catch {}
-    throw new Error(msg);
-  }
-
-  if (res.status === 204) return undefined as T;
-
-  if (ct.includes("application/json")) {
-    return (await res.json()) as T;
-  } else {
-    const text = await res.text();
-    try {
-      return JSON.parse(text) as T;
-    } catch {
-      return text as unknown as T;
-    }
-  }
-}
-
-// =======================
-// USERS API (chuẩn Swagger backend)
-// =======================
 export const usersApi = {
-  // 🔹 Lấy toàn bộ danh sách user
-  list: () => fetchJson<UserDTO[]>("/user/all"),
+  async list(): Promise<UserDTO[]> {
+    const res = await fetch(`${API_BASE}/user/all`, {
+      ...baseInit,
+      headers: authHeader(),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json();
+  },
 
-  // 🔹 Tạo user mới (Swagger: POST /api/auth/register)
-  create: (payload: CreateUserDTO) =>
-    fetchJson<UserDTO>("/auth/register", {
+  async create(payload: CreateUserDTO): Promise<UserDTO> {
+    const res = await fetch(`${API_BASE}/auth/register`, {
+      ...baseInit,
       method: "POST",
+      headers: { ...authHeader(), "Content-Type": "application/json" },
       body: JSON.stringify(payload),
-    }),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
+    return res.json();
+  },
 
-  // 🔹 Cập nhật user (Swagger: PUT /api/user/update)
-  update: (id: number, patch: UpdateUserDTO) =>
-    fetchJson<UserDTO | string>("/user/update", {
+  async update(id: number, patch: UpdateUserDTO): Promise<UserDTO | string> {
+    const res = await fetch(`${API_BASE}/user/update`, {
+      ...baseInit,
       method: "PUT",
+      headers: { ...authHeader(), "Content-Type": "application/json" },
       body: JSON.stringify({ id, ...patch }),
-    }),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
+    const ct = res.headers.get("content-type") || "";
+    return ct.includes("application/json") ? res.json() : res.text();
+  },
 
-  // 🔹 Xóa mềm user (Swagger: DELETE /api/user/delete-soft/{id})
-  remove: (id: number) =>
-    fetchJson<void | string>(`/user/delete-soft/${id}`, {
+  async remove(id: number): Promise<void | string> {
+    const res = await fetch(`${API_BASE}/user/delete-soft/${id}`, {
+      ...baseInit,
       method: "DELETE",
-    }),
+      headers: authHeader(),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
+    const ct = res.headers.get("content-type") || "";
+    return ct.includes("application/json") ? res.json() : undefined;
+  },
 };
